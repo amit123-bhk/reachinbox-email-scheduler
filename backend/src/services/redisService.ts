@@ -4,20 +4,25 @@ import { config } from '../config/env';
 
 let redisClient: Redis | null = null;
 let memoryServer: RedisMemoryServer | null = null;
-let redisConnectionOptions: { host: string; port: number; password?: string } = {
+let redisConnectionOptions: { host: string; port: number; password?: string; tls?: any } = {
   host: config.redis.host,
   port: config.redis.port,
   password: config.redis.password,
+  tls: config.redis.host.includes('upstash.io') ? {} : undefined,
 };
 
-export async function initRedis(): Promise<{ host: string; port: number; password?: string }> {
+export async function initRedis(): Promise<{ host: string; port: number; password?: string; tls?: any }> {
   try {
+    const isUpstash = config.redis.host.includes('upstash.io');
+    const tlsConfig = isUpstash ? {} : undefined;
+
     // Try connecting to configured Redis host
     const testClient = new Redis({
       host: config.redis.host,
       port: config.redis.port,
       password: config.redis.password,
-      connectTimeout: 1000,
+      tls: tlsConfig,
+      connectTimeout: 3000,
       maxRetriesPerRequest: 1,
       lazyConnect: true,
       retryStrategy: () => null, // don't retry
@@ -36,6 +41,7 @@ export async function initRedis(): Promise<{ host: string; port: number; passwor
       host: config.redis.host,
       port: config.redis.port,
       password: config.redis.password,
+      tls: tlsConfig,
     };
     return redisConnectionOptions;
   } catch (err) {
@@ -66,6 +72,7 @@ export function getRedisClient(): Redis {
       host: opts.host,
       port: opts.port,
       password: opts.password,
+      tls: opts.tls,
       maxRetriesPerRequest: null,
     });
     redisClient.on('error', (err) => console.error('[Redis Client Error]', err.message));

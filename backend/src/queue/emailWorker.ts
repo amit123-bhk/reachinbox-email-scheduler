@@ -138,6 +138,7 @@ export function initEmailWorker() {
         host: opts.host,
         port: opts.port,
         password: opts.password,
+        tls: opts.tls,
       },
       concurrency: config.concurrency,
     }

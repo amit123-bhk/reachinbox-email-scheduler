@@ -28,6 +28,7 @@ export function getEmailQueue(): Queue {
         host: opts.host,
         port: opts.port,
         password: opts.password,
+        tls: opts.tls,
       },
       defaultJobOptions: {
         attempts: 3,
