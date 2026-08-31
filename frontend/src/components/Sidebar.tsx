@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="space-y-6">
         {/* Top Brand Logo */}
         <div className="px-1">
-          <h1 className="text-2xl font-black tracking-tight text-gray-900 font-mono">ONG</h1>
+          <h1 className="text-2xl font-black tracking-tight text-gray-900 font-mono">ONB</h1>
         </div>
 
         {/* User Profile Card with Avatar Image & Dropdown Menu */}

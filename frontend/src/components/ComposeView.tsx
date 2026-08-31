@@ -207,23 +207,41 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newAttachments: AttachmentFile[] = [];
-
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const isImage = file.type.startsWith('image/');
 
-      newAttachments.push({
-        id: `att_${Date.now()}_${i}`,
-        name: file.name,
-        size: formatFileSize(file.size),
-        type: file.type,
-        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
-        fileObj: file,
-      });
+      if (isImage) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          setAttachments((prev) => [
+            ...prev,
+            {
+              id: `att_${Date.now()}_${Math.random()}`,
+              name: file.name,
+              size: formatFileSize(file.size),
+              type: file.type,
+              previewUrl: dataUrl,
+              fileObj: file,
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: `att_${Date.now()}_${Math.random()}`,
+            name: file.name,
+            size: formatFileSize(file.size),
+            type: file.type,
+            fileObj: file,
+          },
+        ]);
+      }
     }
 
-    setAttachments((prev) => [...prev, ...newAttachments]);
     toast.success(`Attached ${files.length} file(s)`, { icon: '📎' });
     if (fileAttachmentRef.current) {
       fileAttachmentRef.current.value = '';
@@ -277,6 +295,10 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     setIsSubmitting(true);
 
     try {
+      const selectedSender = allSenders.find((s) => s.id === selectedSenderId);
+      const activeSenderEmail = selectedSender?.email || currentUser?.email || 'alex@reachinbox.ai';
+      const activeSenderName = selectedSender?.name || currentUser?.name || 'Sender';
+
       const payload = {
         subject,
         body: currentContent,
@@ -285,7 +307,16 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
         delaySeconds: Number(delaySeconds) || 2,
         hourlyLimit: Number(hourlyLimit) || 200,
         senderId: selectedSenderId,
+        senderEmail: activeSenderEmail,
+        senderName: activeSenderName,
         userId: currentUser?.id,
+        userEmail: currentUser?.email,
+        attachments: attachments.map((a) => ({
+          name: a.name,
+          size: a.size,
+          type: a.type,
+          previewUrl: a.previewUrl,
+        })),
       };
 
       const res = await axios.post('http://localhost:4000/api/emails/schedule', payload);
@@ -501,6 +532,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
           <button type="button" onClick={() => handleFormat('insertUnorderedList')} className="hover:text-gray-800 transition-all p-1 hover:bg-gray-200/60 rounded" title="Bullet List"><List className="w-4 h-4" /></button>
           <button type="button" onClick={() => handleFormat('formatBlock', 'blockquote')} className="hover:text-gray-800 transition-all p-1 hover:bg-gray-200/60 rounded" title="Quote"><Quote className="w-4 h-4" /></button>
           <button type="button" onClick={handleInsertLink} className="hover:text-gray-800 transition-all p-1 hover:bg-gray-200/60 rounded" title="Link"><Link2 className="w-4 h-4" /></button>
+          <button type="button" onClick={() => fileAttachmentRef.current?.click()} className="hover:text-gray-800 transition-all p-1 hover:bg-gray-200/60 rounded" title="Insert Image / Photo"><ImageIcon className="w-4 h-4" /></button>
         </div>
 
         {/* ContentEditable Interactive Text Area */}
@@ -518,41 +550,38 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
         />
       </div>
 
-      {/* Attachments Section */}
+      {/* Attachments Section matching Figma Screenshot Thumbnail Cards */}
       {attachments.length > 0 && (
-        <div className="pt-2 space-y-2 w-full">
+        <div className="pt-2 w-full space-y-2">
           <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-            Attachments ({attachments.length}):
+            Attached Photos / Files ({attachments.length}):
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="flex flex-wrap gap-4 items-center">
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 flex items-center justify-between gap-2 group hover:border-emerald-300 transition-all"
+                className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-sm group hover:shadow-md transition-all bg-gray-50"
               >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {att.previewUrl ? (
-                    <img
-                      src={att.previewUrl}
-                      alt={att.name}
-                      className="w-8 h-8 rounded object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded bg-emerald-100 text-[#00b050] font-bold flex items-center justify-center text-[10px] shrink-0">
-                      FILE
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-gray-800 truncate" title={att.name}>
+                {att.previewUrl ? (
+                  <img
+                    src={att.previewUrl}
+                    alt={att.name}
+                    className="w-48 h-32 object-cover block"
+                  />
+                ) : (
+                  <div className="w-48 h-32 bg-emerald-50 text-[#00b050] font-bold flex flex-col items-center justify-center gap-1 p-3 text-center">
+                    <span className="text-xs font-bold uppercase truncate max-w-[170px]" title={att.name}>
                       {att.name}
-                    </div>
-                    <div className="text-[10px] text-gray-400">{att.size}</div>
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-medium">{att.size}</span>
                   </div>
-                </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => removeAttachment(att.id)}
-                  className="text-gray-400 hover:text-rose-500 p-1 shrink-0 transition-all"
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-all opacity-80 hover:opacity-100 backdrop-blur-sm"
+                  title="Remove Attachment"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

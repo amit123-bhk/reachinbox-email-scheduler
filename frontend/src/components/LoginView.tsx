@@ -16,45 +16,58 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onNavigateToRegis
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Instant & Reliable Google Login Handler
-  const handleGoogleLoginSubmit = async (googleEmail?: string, googleName?: string) => {
+  // Dynamic Google Login Handler with exact Account Chooser Details
+  const handleGoogleLoginSubmit = async (googleEmail?: string, googleName?: string, googleAvatar?: string) => {
     setIsLoading(true);
 
-    const targetEmail = googleEmail || (email && email.includes('@') ? email.trim().toLowerCase() : 'amityadav12@gmail.com');
+    const targetEmail = googleEmail || (email && email.includes('@') ? email.trim().toLowerCase() : 'user@gmail.com');
     const targetName = googleName || targetEmail.split('@')[0];
+    const targetAvatar = googleAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
     const googlePayload = {
       email: targetEmail,
       name: targetName,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: targetAvatar,
     };
 
     try {
       const res = await axios.post('http://localhost:4000/api/auth/google-verify', googlePayload);
       if (res.data?.success && res.data?.user) {
-        toast.success(`Welcome back, ${res.data.user.name || 'User'}!`, { icon: '👋' });
+        toast.success(`Welcome back, ${res.data.user.name || targetName}!`, { icon: '👋' });
         onLogin(res.data.user);
         return;
       }
     } catch (err) {
-      console.warn('Google auth fallback:', err);
+      console.warn('Google auth API fallback:', err);
     }
 
     const fallbackUser: UserProfile = {
       id: `usr_google_${Date.now()}`,
       name: targetName,
       email: targetEmail,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: targetAvatar,
     };
     toast.success(`Welcome back, ${fallbackUser.name}!`, { icon: '👋' });
     onLogin(fallbackUser);
     setIsLoading(false);
   };
 
-  // React OAuth Google Custom Login Hook
+  // React OAuth Google Hook with prompt: 'select_account' to force Google Account Chooser
   const loginWithGoogleOAuth = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      handleGoogleLoginSubmit();
+    prompt: 'select_account',
+    onSuccess: async (tokenResponse) => {
+      try {
+        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        if (userInfo.data && userInfo.data.email) {
+          handleGoogleLoginSubmit(userInfo.data.email, userInfo.data.name, userInfo.data.picture);
+        } else {
+          handleGoogleLoginSubmit();
+        }
+      } catch (err) {
+        handleGoogleLoginSubmit();
+      }
     },
     onError: () => {
       handleGoogleLoginSubmit();
@@ -99,7 +112,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onNavigateToRegis
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-lg border border-gray-100 text-center space-y-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Login</h1>
 
-        {/* Single Clean Google Login Button matching Figma */}
+        {/* Single Clean Google Login Button with Account Chooser */}
         <button
           type="button"
           onClick={() => loginWithGoogleOAuth()}

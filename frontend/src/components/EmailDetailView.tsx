@@ -57,21 +57,21 @@ export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ email, onBack 
       </div>
 
       {/* Dynamic Email Body Content */}
-      <div className="space-y-4 text-xs text-gray-800 leading-relaxed pt-2 whitespace-pre-wrap">
-        {email.body}
-      </div>
+      <div
+        className="space-y-4 text-xs text-gray-800 leading-relaxed pt-2"
+        dangerouslySetInnerHTML={{ __html: email.body }}
+      />
 
-      {/* Ethereal Real Preview Link Button */}
+      {/* Clean Ethereal Mail Button */}
       {email.etherealPreviewUrl && (
         <div className="pt-4 border-t border-gray-100">
-          <div className="text-[11px] text-gray-400 mb-2 font-medium">Fake SMTP Test Mail Preview:</div>
           <a
             href={email.etherealPreviewUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#00b050] border border-emerald-200 rounded-xl text-xs font-semibold transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#00b050] border border-emerald-200 rounded-full text-xs font-semibold transition-all shadow-sm"
           >
-            <span>View Rendered HTML in Ethereal Email</span>
+            <span>See Mail in Ethereal</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>

@@ -17,22 +17,23 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNaviga
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleRegisterSubmit = async (googleEmail?: string, googleName?: string) => {
+  const handleGoogleRegisterSubmit = async (googleEmail?: string, googleName?: string, googleAvatar?: string) => {
     setIsLoading(true);
 
-    const targetEmail = googleEmail || (email && email.includes('@') ? email.trim().toLowerCase() : 'amityadav12@gmail.com');
+    const targetEmail = googleEmail || (email && email.includes('@') ? email.trim().toLowerCase() : 'user@gmail.com');
     const targetName = googleName || name.trim() || targetEmail.split('@')[0];
+    const targetAvatar = googleAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
     const googlePayload = {
       email: targetEmail,
       name: targetName,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: targetAvatar,
     };
 
     try {
       const res = await axios.post('http://localhost:4000/api/auth/google-verify', googlePayload);
       if (res.data?.success && res.data?.user) {
-        toast.success(`Account created! Welcome, ${res.data.user.name || 'User'}!`, { icon: '🎉' });
+        toast.success(`Account created! Welcome, ${res.data.user.name || targetName}!`, { icon: '🎉' });
         onRegister(res.data.user);
         return;
       }
@@ -44,7 +45,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNaviga
       id: `usr_google_${Date.now()}`,
       name: targetName,
       email: targetEmail,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: targetAvatar,
     };
     toast.success(`Account created! Welcome, ${fallbackUser.name}!`, { icon: '🎉' });
     onRegister(fallbackUser);
@@ -52,8 +53,20 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNaviga
   };
 
   const registerWithGoogleOAuth = useGoogleLogin({
-    onSuccess: () => {
-      handleGoogleRegisterSubmit();
+    prompt: 'select_account',
+    onSuccess: async (tokenResponse) => {
+      try {
+        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        if (userInfo.data && userInfo.data.email) {
+          handleGoogleRegisterSubmit(userInfo.data.email, userInfo.data.name, userInfo.data.picture);
+        } else {
+          handleGoogleRegisterSubmit();
+        }
+      } catch (err) {
+        handleGoogleRegisterSubmit();
+      }
     },
     onError: () => {
       handleGoogleRegisterSubmit();
@@ -112,7 +125,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onNaviga
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-lg border border-gray-100 text-center space-y-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Register Account</h1>
 
-        {/* Single Clean Google Register Button matching Figma */}
+        {/* Single Clean Google Register Button with Account Chooser */}
         <button
           type="button"
           onClick={() => registerWithGoogleOAuth()}

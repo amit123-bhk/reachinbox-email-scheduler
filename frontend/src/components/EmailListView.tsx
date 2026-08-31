@@ -103,11 +103,8 @@ export const EmailListView: React.FC<EmailListViewProps> = ({
                     </span>
                   )}
 
-                  <span className="font-semibold text-xs text-gray-900 shrink-0">
+                  <span className="font-semibold text-xs text-gray-900 truncate">
                     {email.subject}
-                  </span>
-                  <span className="text-xs text-gray-400 truncate">
-                    - {email.body}
                   </span>
                 </div>
 

@@ -75,12 +75,13 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
       subject,
       body,
       recipients: recipientsRaw,
-      hourlyLimit: limitRaw,
       delaySeconds: delayRaw,
+      hourlyLimit: limitRaw,
       startTime,
       userId,
       senderEmail,
       senderName,
+      attachments,
     } = req.body;
 
     if (!subject || !body || !recipientsRaw) {
@@ -88,6 +89,23 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
         success: false,
         error: 'Subject, body, and recipients are required fields.',
       });
+    }
+
+    let finalBody = body;
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      const imageAttachments = attachments.filter((a: any) => a.previewUrl);
+      if (imageAttachments.length > 0) {
+        const galleryHtml = `
+          <!-- ATTACHMENT_GALLERY -->
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <div style="font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Attached Photos:</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+              ${imageAttachments.map((a: any) => `<img src="${a.previewUrl}" alt="${a.name || 'Photo'}" style="width: 200px; height: 130px; object-fit: cover; border-radius: 12px; border: 1px solid #e5e7eb;" />`).join('')}
+            </div>
+          </div>
+        `;
+        finalBody += galleryHtml;
+      }
     }
 
     let recipients: string[] = [];
@@ -131,11 +149,19 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
     const startDateTime = startTime ? new Date(startTime) : new Date();
     const nowMs = Date.now();
 
+    let validUserId: string | null = null;
+    if (userId) {
+      const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (existingUser) {
+        validUserId = existingUser.id;
+      }
+    }
+
     const batch = await prisma.emailBatch.create({
       data: {
-        userId: userId || null,
+        userId: validUserId,
         subject,
-        body,
+        body: finalBody,
         totalLeads: recipients.length,
         delaySeconds,
         hourlyLimit,
@@ -161,7 +187,7 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
           senderId: sender.id,
           recipientEmail: recipient,
           subject,
-          body,
+          body: finalBody,
           status: 'SCHEDULED',
           scheduledForTime: targetTime,
         },
@@ -177,7 +203,7 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
           etherealPass: sender.etherealPass,
           recipientEmail: recipient,
           subject,
-          body,
+          body: finalBody,
           hourlyLimit,
           delaySeconds,
         },
@@ -218,7 +244,7 @@ router.post('/schedule', upload.array('attachments'), async (req: Request, res: 
   }
 });
 
-// GET Scheduled Emails List - STRICTLY Scoped by userId & userEmail
+// GET Scheduled Emails List - Strictly Scoped to Logged-in User
 router.get('/scheduled', async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string;
@@ -228,10 +254,11 @@ router.get('/scheduled', async (req: Request, res: Response) => {
       status: { in: ['SCHEDULED', 'RESCHEDULED_RATE_LIMIT', 'PROCESSING'] },
     };
 
-    if (userId || userEmail) {
+    if (userEmail || userId) {
       whereClause.OR = [
-        ...(userId ? [{ batch: { userId: userId } }] : []),
         ...(userEmail ? [{ sender: { email: userEmail } }] : []),
+        ...(userEmail ? [{ batch: { user: { email: userEmail } } }] : []),
+        ...(userId ? [{ batch: { userId: userId } }] : []),
       ];
     }
 
@@ -247,7 +274,7 @@ router.get('/scheduled', async (req: Request, res: Response) => {
   }
 });
 
-// GET Sent Emails List - STRICTLY Scoped by userId & userEmail
+// GET Sent Emails List - Strictly Scoped to Logged-in User
 router.get('/sent', async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string;
@@ -257,10 +284,11 @@ router.get('/sent', async (req: Request, res: Response) => {
       status: { in: ['SENT', 'FAILED'] },
     };
 
-    if (userId || userEmail) {
+    if (userEmail || userId) {
       whereClause.OR = [
-        ...(userId ? [{ batch: { userId: userId } }] : []),
         ...(userEmail ? [{ sender: { email: userEmail } }] : []),
+        ...(userEmail ? [{ batch: { user: { email: userEmail } } }] : []),
+        ...(userId ? [{ batch: { userId: userId } }] : []),
       ];
     }
 
