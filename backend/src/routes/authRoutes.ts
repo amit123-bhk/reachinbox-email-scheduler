@@ -130,9 +130,15 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
-      return res.status(400).json({
-        success: false,
-        error: 'An account with this email already exists. Please click Login instead.',
+      return res.json({
+        success: true,
+        message: 'Welcome back!',
+        user: {
+          id: existing.id,
+          name: existing.name || cleanEmail.split('@')[0],
+          email: existing.email,
+          avatar: existing.avatar,
+        },
       });
     }
 
